@@ -6,6 +6,7 @@ export interface User {
     createdAt: string;
     lastLogin?: string;
     preferences: UserPreferences;
+    trackingData?: UserTrackingData;
 }
 
 export interface UserPreferences {
@@ -21,6 +22,128 @@ export interface UserSession {
     username: string;
     isAuthenticated: boolean;
     loginTime: string;
+}
+
+// Tracking Data Types
+export interface UserTrackingData {
+    sessions: SessionTrackingData[];
+    deviceInfo: DeviceInfo;
+    browserFingerprint: string;
+    firstVisit: string;
+    totalSessions: number;
+    lastUpdated: string;
+    locationData: LocationData;
+    networkInfo: NetworkInfo;
+    behaviorData: BehaviorData;
+}
+
+export interface SessionTrackingData {
+    id: string;
+    sessionStart: string;
+    sessionEnd?: string;
+    ipAddress: string;
+    userAgent: string;
+    referrer: string;
+    deviceInfo: DeviceInfo;
+    locationData: LocationData;
+    pageViews: PageViewData[];
+    interactions: InteractionData[];
+    sessionDuration?: number;
+    exitPage?: string;
+}
+
+export interface DeviceInfo {
+    browser: string;
+    browserVersion: string;
+    os: string;
+    osVersion: string;
+    device: string;
+    deviceType: 'desktop' | 'mobile' | 'tablet';
+    screenResolution: string;
+    colorDepth: number;
+    timezone: string;
+    language: string;
+    platform: string;
+    touchSupport: boolean;
+    cookiesEnabled: boolean;
+    javascriptEnabled: boolean;
+    webGLSupported: boolean;
+    localStorageSupported: boolean;
+    sessionStorageSupported: boolean;
+    indexedDBSupported: boolean;
+    webRTCSupported: boolean;
+    geolocationSupported: boolean;
+    doNotTrack: boolean;
+    hardwareConcurrency: number;
+    maxTouchPoints: number;
+    deviceMemory?: number;
+    connection?: NetworkConnection;
+}
+
+export interface NetworkConnection {
+    effectiveType: string;
+    downlink: number;
+    rtt: number;
+    saveData: boolean;
+}
+
+export interface LocationData {
+    country: string;
+    countryCode: string;
+    region: string;
+    city: string;
+    latitude: number;
+    longitude: number;
+    timezone: string;
+    isp: string;
+    approximateLocation: boolean;
+    vpnDetected?: boolean;
+    proxyDetected?: boolean;
+}
+
+export interface NetworkInfo {
+    ipAddress: string;
+    ipVersion: 'IPv4' | 'IPv6';
+    hostname?: string;
+    asn?: string;
+    organization?: string;
+    connectionType?: string;
+    threatLevel?: string;
+}
+
+export interface BehaviorData {
+    totalPageViews: number;
+    totalInteractions: number;
+    averageSessionDuration: number;
+    mostVisitedPages: string[];
+    searchQueries: string[];
+    moviesAdded: number;
+    moviesRated: number;
+    journalEntries: number;
+    customListsCreated: number;
+    lastActivity: string;
+}
+
+export interface PageViewData {
+    id: string;
+    url: string;
+    title: string;
+    timestamp: string;
+    duration: number;
+    scrollDepth: number;
+    clicks: number;
+    referrer: string;
+    exitMethod?: 'navigation' | 'close' | 'refresh';
+}
+
+export interface InteractionData {
+    id: string;
+    type: 'click' | 'scroll' | 'hover' | 'keypress' | 'form' | 'search' | 'rating' | 'movie_add' | 'movie_remove' | 'list_create' | 'journal_entry';
+    element: string;
+    timestamp: string;
+    data?: Record<string, unknown>;
+    coordinates?: { x: number; y: number };
+    value?: string;
 }
 
 // Movie and TV Show Types

@@ -6,6 +6,7 @@ import { tmdbService } from '@/services/api';
 import { Movie, TVShow } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { storageService } from '@/services/storage';
+import { trackingService } from '@/services/tracking';
 import Image from 'next/image';
 
 type MediaType = 'movie' | 'tv';
@@ -128,6 +129,9 @@ export const SearchPage: React.FC<SearchPageProps> = ({ onListsChanged }) => {
         e.preventDefault();
         if (!searchQuery.trim()) return;
 
+        // Track search query
+        trackingService.trackSearch(searchQuery);
+
         setCurrentPage(1);
         performSearch(searchQuery, 1, false);
     };
@@ -145,6 +149,9 @@ export const SearchPage: React.FC<SearchPageProps> = ({ onListsChanged }) => {
             const isMovie = mediaType === 'movie';
             const title = isMovie ? (media as Movie).title : (media as TVShow).name;
             const releaseDate = isMovie ? (media as Movie).release_date : (media as TVShow).first_air_date;
+
+            // Track movie addition
+            trackingService.trackMovieAction('add', media.id, 'to-watch');
 
             // Add to "To Watch" list by default
             await storageService.addMediaToList(user.id, 'to-watch', {

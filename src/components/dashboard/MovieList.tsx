@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Star, Calendar, Trash2, Eye, CheckCircle, ArrowRight, Plus, List, Search, Filter, X, SlidersHorizontal, Play, Award as AwardIcon } from 'lucide-react';
+import { Star, Calendar, Trash2, Eye, CheckCircle, ArrowRight, Plus, List, Search, Filter, X, SlidersHorizontal, Play, Award as AwardIcon, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { storageService } from '@/services/storage';
+import { trackingService } from '@/services/tracking';
 import { UserMediaItem, UserList, EpisodeProgress, FestivalAward, Award } from '@/types';
 import Image from 'next/image';
 import { EpisodeTracker } from './EpisodeTracker';
@@ -430,8 +431,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
     };
 
     return (
-        <div className="relative bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors group cursor-pointer"
-            onClick={() => onOpenDetailsModal(item)}>
+        <div className="relative bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors group">
             <div className="relative rounded-t-lg">
                 <Image
                     src={posterUrl}
@@ -475,6 +475,16 @@ const MovieCard: React.FC<MovieCardProps> = ({
                             </button>
                             {showActionDropdown && renderActionDropdown()}
                         </div>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenDetailsModal(item);
+                            }}
+                            className="bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-full transition-colors"
+                            title="View Details"
+                        >
+                            <Info className="w-4 h-4" />
+                        </button>
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -703,6 +713,9 @@ export const MovieList: React.FC<MovieListProps> = ({ listId, onListsChanged }) 
         try {
             const item = list.items.find(item => item.id === itemId);
             if (!item) return;
+
+            // Track rating interaction
+            trackingService.trackRating(item.mediaId, rating);
 
             // Find the system list containing this item
             const systemListId = item.status === 'to_watch' ? 'to-watch' : 'watched';

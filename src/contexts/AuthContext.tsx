@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserSession } from '@/types';
 import { storageService } from '@/services/storage';
+import { trackingService } from '@/services/tracking';
 
 interface AuthContextType {
     user: User | null;
@@ -69,13 +70,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
             setIsLoading(true);
 
+            // Get client tracking data
+            const clientTrackingData = trackingService.getClientTrackingData();
+
             // Authenticate with server
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify({
+                    username,
+                    password,
+                    trackingData: clientTrackingData
+                }),
             });
 
             if (!response.ok) {
@@ -112,8 +120,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
             setIsLoading(true);
 
-            // Create new user
-            const newUser = await storageService.createUser(username, password);
+            // Get client tracking data
+            const clientTrackingData = trackingService.getClientTrackingData();
+
+            // Create new user with tracking data
+            const response = await fetch('/api/auth/signup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username,
+                    password,
+                    trackingData: clientTrackingData
+                }),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Signup failed');
+            }
+
+            const data = await response.json();
+            const newUser = data.user;
 
             // Store user data and create session
             localStorage.setItem('current_user', JSON.stringify(newUser));
