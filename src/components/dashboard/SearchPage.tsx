@@ -25,7 +25,7 @@ const MediaCard: React.FC<MediaCardProps> = ({ media, mediaType, onAddToList }) 
 
     const posterUrl = media.poster_path
         ? `https://image.tmdb.org/t/p/w300${media.poster_path}`
-        : '/placeholder-poster.jpg';
+        : '/placeholder-poster.svg';
 
     return (
         <div className="bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors group">
@@ -37,7 +37,7 @@ const MediaCard: React.FC<MediaCardProps> = ({ media, mediaType, onAddToList }) 
                     height={450}
                     className="w-full h-80 object-cover"
                     onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/placeholder-poster.jpg';
+                        (e.target as HTMLImageElement).src = '/placeholder-poster.svg';
                     }}
                 />
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 flex items-center justify-center transition-all duration-200">

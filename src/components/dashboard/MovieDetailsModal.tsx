@@ -132,7 +132,7 @@ export const MovieDetailsModal: React.FC<MovieDetailsModalProps> = ({ item, onCl
 
     const posterUrl = item.poster_path
         ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
-        : '/placeholder-poster.jpg';
+        : '/placeholder-poster.svg';
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">

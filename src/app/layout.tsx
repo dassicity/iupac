@@ -14,7 +14,6 @@ export const metadata: Metadata = {
   description: "A movie tracking application for film enthusiasts",
   keywords: ["movies", "films", "tracking", "cinema", "festival films"],
   authors: [{ name: "Movie Enthusiast" }],
-  viewport: "width=device-width, initial-scale=1",
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
@@ -23,6 +22,11 @@ export const metadata: Metadata = {
     shortcut: '/favicon.png',
     apple: '/favicon.png',
   },
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({

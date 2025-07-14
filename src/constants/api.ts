@@ -9,7 +9,7 @@ export const API_CONFIG = {
 
     // OMDB Configuration
     OMDB: {
-        BASE_URL: process.env.NEXT_PUBLIC_OMDB_BASE_URL || 'http://www.omdbapi.com',
+        BASE_URL: process.env.NEXT_PUBLIC_OMDB_BASE_URL || 'https://www.omdbapi.com',
         API_KEY: process.env.NEXT_PUBLIC_OMDB_API_KEY || '',
     },
 

@@ -133,7 +133,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
 
     const posterUrl = item.poster_path
         ? `https://image.tmdb.org/t/p/w300${item.poster_path}`
-        : '/placeholder-poster.jpg';
+        : '/placeholder-poster.svg';
 
     const year = item.release_date || item.first_air_date
         ? new Date(item.release_date || item.first_air_date!).getFullYear()
@@ -440,7 +440,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
                     height={450}
                     className="w-full h-80 object-cover"
                     onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/placeholder-poster.jpg';
+                        (e.target as HTMLImageElement).src = '/placeholder-poster.svg';
                     }}
                 />
 

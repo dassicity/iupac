@@ -106,6 +106,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
             localStorage.setItem('iupac_user_session', JSON.stringify(newSession));
 
+            // Initialize tracking service with the session ID from server
+            if (data.sessionId) {
+                trackingService.setSessionId(data.sessionId);
+            }
+
             setUser(authenticatedUser);
             setSession(newSession);
         } catch (error) {
@@ -155,6 +160,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             };
 
             localStorage.setItem('iupac_user_session', JSON.stringify(newSession));
+
+            // Initialize tracking service with the session ID from server
+            if (data.sessionId) {
+                trackingService.setSessionId(data.sessionId);
+            }
 
             setUser(newUser);
             setSession(newSession);

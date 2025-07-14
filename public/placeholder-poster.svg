@@ -1,0 +1,28 @@
+<svg width="300" height="450" viewBox="0 0 300 450" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="300" height="450" fill="#374151"/>
+  
+  <!-- Border -->
+  <rect x="10" y="10" width="280" height="430" fill="none" stroke="#6B7280" stroke-width="2" stroke-dasharray="5,5"/>
+  
+  <!-- Image icon -->
+  <g transform="translate(150, 200)">
+    <circle cx="0" cy="0" r="30" fill="#6B7280"/>
+    <rect x="-20" y="-15" width="40" height="25" rx="3" fill="#374151"/>
+    <circle cx="-8" cy="-5" r="3" fill="#9CA3AF"/>
+    <polygon points="-12,5 -5,-2 3,6 12,6 12,10 -12,10" fill="#9CA3AF"/>
+  </g>
+  
+  <!-- Text -->
+  <text x="150" y="280" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="16" font-weight="bold">
+    No Image
+  </text>
+  <text x="150" y="300" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="16" font-weight="bold">
+    Available
+  </text>
+  
+  <!-- Dimensions indicator -->
+  <text x="150" y="420" text-anchor="middle" fill="#6B7280" font-family="Arial, sans-serif" font-size="12">
+    300 × 450
+  </text>
+</svg> 

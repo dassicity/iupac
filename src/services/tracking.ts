@@ -404,6 +404,11 @@ export class TrackingService {
 
             const user = JSON.parse(currentUser);
 
+            // Generate a session ID if one doesn't exist
+            if (!this.currentSessionId) {
+                this.currentSessionId = this.generateId();
+            }
+
             await fetch('/api/tracking', {
                 method: 'POST',
                 headers: {
@@ -433,6 +438,11 @@ export class TrackingService {
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             language: navigator.language
         };
+    }
+
+    // Set the current session ID
+    public setSessionId(sessionId: string): void {
+        this.currentSessionId = sessionId;
     }
 }
 
