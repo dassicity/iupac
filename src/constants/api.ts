@@ -22,6 +22,10 @@ export const API_CONFIG = {
     // RapidAPI Configuration
     RAPIDAPI: {
         KEY: process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '',
+        IMDB: {
+            BASE_URL: 'https://imdb8.p.rapidapi.com',
+            HOST: 'imdb8.p.rapidapi.com',
+        },
     },
 };
 
@@ -47,6 +51,16 @@ export const API_ENDPOINTS = {
         SEARCH: '/search',
         TITLE_DETAILS: '/title',
         SOURCES: '/sources',
+    },
+
+    RAPIDAPI_IMDB: {
+        TITLE_DETAILS: '/title/get-details',
+        TITLE_RATINGS: '/title/get-ratings',
+        TITLE_CAST: '/title/get-full-cast',
+        TITLE_IMAGES: '/title/get-images',
+        TITLE_OVERVIEW: '/title/get-overview-details',
+        TITLE_WATCH_PROVIDERS: '/title/get-streaming-services',
+        SEARCH: '/auto-complete',
     },
 };
 

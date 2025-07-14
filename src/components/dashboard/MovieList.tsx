@@ -8,6 +8,7 @@ import { UserMediaItem, UserList, EpisodeProgress, FestivalAward, Award } from '
 import Image from 'next/image';
 import { EpisodeTracker } from './EpisodeTracker';
 import { FestivalTracker } from './FestivalTracker';
+import { MovieDetailsModal } from './MovieDetailsModal';
 
 interface MovieListProps {
     listId: string;
@@ -31,8 +32,9 @@ interface MovieCardProps {
     onChangeStatus: (itemId: string, newStatus: 'to_watch' | 'watched') => void;
     onAddToCustomList: (itemId: string, customListId: string) => void;
     onRemoveFromCustomList: (itemId: string, customListId: string) => void;
-    onUpdateEpisodeProgress: (itemId: string, progress: EpisodeProgress) => void;
     onUpdateFestivalData: (itemId: string, festivals: FestivalAward[], awards: Award[]) => void;
+    onOpenEpisodeTracker: (itemId: string) => void;
+    onOpenDetailsModal: (item: UserMediaItem) => void;
     availableLists: UserList[];
     currentListId: string;
     isCustomList: boolean;
@@ -45,8 +47,9 @@ const MovieCard: React.FC<MovieCardProps> = ({
     onChangeStatus,
     onAddToCustomList,
     onRemoveFromCustomList,
-    onUpdateEpisodeProgress,
     onUpdateFestivalData,
+    onOpenEpisodeTracker,
+    onOpenDetailsModal,
     availableLists,
     currentListId,
     isCustomList
@@ -54,7 +57,6 @@ const MovieCard: React.FC<MovieCardProps> = ({
     const [showRating, setShowRating] = useState(false);
     const [selectedRating, setSelectedRating] = useState(item.rating || 0);
     const [showActionDropdown, setShowActionDropdown] = useState(false);
-    const [showEpisodeTracker, setShowEpisodeTracker] = useState(false);
     const [showFestivalTracker, setShowFestivalTracker] = useState(false);
     const [dropdownPosition, setDropdownPosition] = useState<'left' | 'right'>('right');
     const dropdownButtonRef = useRef<HTMLDivElement>(null);
@@ -66,7 +68,8 @@ const MovieCard: React.FC<MovieCardProps> = ({
                 const buttonRect = dropdownButtonRef.current!.getBoundingClientRect();
                 const viewportWidth = window.innerWidth;
                 const isMobile = viewportWidth < 768; // md breakpoint
-                const dropdownWidth = isMobile ? Math.min(72, viewportWidth - 32) : 80;
+                const dropdownWidth = isMobile ? Math.min(80, viewportWidth - 32) : 72;
+                console.log("dropdownWidth", dropdownWidth);
                 const padding = 16;
 
                 // For mobile, use full viewport. For desktop, try to find main content area
@@ -85,10 +88,13 @@ const MovieCard: React.FC<MovieCardProps> = ({
 
                 // Calculate available space
                 const spaceToRight = contentRect.right - buttonRect.right - padding;
+                console.log("spaceToRight", spaceToRight);
                 const spaceToLeft = buttonRect.left - contentRect.left - padding;
+                console.log("spaceToLeft", spaceToLeft);
 
                 // Position logic: prefer right, use left if not enough space
-                const shouldPositionLeft = spaceToRight < spaceToLeft && spaceToRight < dropdownWidth;
+                const shouldPositionLeft = spaceToRight < spaceToLeft && spaceToLeft > dropdownWidth;
+                console.log("shouldPositionLeft", shouldPositionLeft);
                 setDropdownPosition(shouldPositionLeft ? 'left' : 'right');
             };
 
@@ -287,7 +293,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
                             <>
                                 <button
                                     onClick={() => {
-                                        setShowEpisodeTracker(true);
+                                        onOpenEpisodeTracker(item.id);
                                         setShowActionDropdown(false);
                                     }}
                                     className="w-full text-left px-4 py-3 text-gray-700 dark:text-gray-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-200 flex items-center gap-3 group"
@@ -424,7 +430,8 @@ const MovieCard: React.FC<MovieCardProps> = ({
     };
 
     return (
-        <div className="relative bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors group ">
+        <div className="relative bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors group cursor-pointer"
+            onClick={() => onOpenDetailsModal(item)}>
             <div className="relative rounded-t-lg">
                 <Image
                     src={posterUrl}
@@ -446,7 +453,10 @@ const MovieCard: React.FC<MovieCardProps> = ({
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 flex items-center justify-center transition-all duration-200">
                     <div className="opacity-0 group-hover:opacity-100 flex gap-2 transition-all duration-200">
                         <button
-                            onClick={() => setShowRating(!showRating)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowRating(!showRating);
+                            }}
                             className="bg-yellow-600 hover:bg-yellow-700 text-white p-2 rounded-full transition-colors"
                             title="Rate"
                         >
@@ -454,7 +464,10 @@ const MovieCard: React.FC<MovieCardProps> = ({
                         </button>
                         <div ref={dropdownButtonRef} className="relative action-dropdown-container">
                             <button
-                                onClick={() => setShowActionDropdown(!showActionDropdown)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowActionDropdown(!showActionDropdown);
+                                }}
                                 className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full transition-colors"
                                 title="List actions"
                             >
@@ -463,7 +476,10 @@ const MovieCard: React.FC<MovieCardProps> = ({
                             {showActionDropdown && renderActionDropdown()}
                         </div>
                         <button
-                            onClick={() => onRemove(item.id)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onRemove(item.id);
+                            }}
                             className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-full transition-colors"
                             title="Remove"
                         >
@@ -495,12 +511,15 @@ const MovieCard: React.FC<MovieCardProps> = ({
 
                 {/* Rating Input */}
                 {showRating && (
-                    <div className="mt-3 p-2 bg-gray-700 rounded">
+                    <div className="mt-3 p-2 bg-gray-700 rounded" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1 mb-2">
                             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => (
                                 <button
                                     key={rating}
-                                    onClick={() => setSelectedRating(rating)}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedRating(rating);
+                                    }}
                                     className={`w-6 h-6 text-xs rounded ${rating <= selectedRating
                                         ? 'bg-yellow-500 text-black'
                                         : 'bg-gray-600 text-gray-300'
@@ -512,13 +531,19 @@ const MovieCard: React.FC<MovieCardProps> = ({
                         </div>
                         <div className="flex gap-2">
                             <button
-                                onClick={handleRatingSubmit}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRatingSubmit();
+                                }}
                                 className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded"
                             >
                                 Save
                             </button>
                             <button
-                                onClick={() => setShowRating(false)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowRating(false);
+                                }}
                                 className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white text-xs rounded"
                             >
                                 Cancel
@@ -527,14 +552,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
                     </div>
                 )}
 
-                {/* Episode Tracker Modal */}
-                {showEpisodeTracker && item.mediaType === 'tv' && (
-                    <EpisodeTracker
-                        item={item}
-                        onUpdateProgress={onUpdateEpisodeProgress}
-                        onClose={() => setShowEpisodeTracker(false)}
-                    />
-                )}
+
 
                 {/* Festival Tracker Modal */}
                 {showFestivalTracker && (
@@ -556,6 +574,15 @@ export const MovieList: React.FC<MovieListProps> = ({ listId, onListsChanged }) 
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string>('');
     const [showFilters, setShowFilters] = useState(false);
+    const [episodeTrackerState, setEpisodeTrackerState] = useState<{
+        isOpen: boolean;
+        itemId: string | null;
+    }>({ isOpen: false, itemId: null });
+
+    const [detailsModalState, setDetailsModalState] = useState<{
+        isOpen: boolean;
+        item: UserMediaItem | null;
+    }>({ isOpen: false, item: null });
     const [filters, setFilters] = useState<FilterState>({
         search: '',
         mediaType: 'all',
@@ -691,9 +718,22 @@ export const MovieList: React.FC<MovieListProps> = ({ listId, onListsChanged }) 
 
         try {
             await storageService.changeItemStatus(user.id, itemId, newStatus);
-            await loadList(); // Reload the list
+
+            // Force a complete reload of all lists to ensure UI is updated
+            await loadList();
+
+            // Notify parent that lists changed - this ensures other components update
             if (onListsChanged) {
-                await onListsChanged(); // Notify parent that lists changed
+                await onListsChanged();
+            }
+
+            // If this is an auto-completion from episode tracker, ensure we close the modal
+            // if the item is no longer in the current list
+            const updatedLists = await storageService.getUserLists(user.id);
+            const currentList = updatedLists.find(l => l.id === listId);
+            if (currentList && !currentList.items.find(item => item.id === itemId)) {
+                // Item was moved to a different list, close the episode tracker
+                setEpisodeTrackerState({ isOpen: false, itemId: null });
             }
         } catch (error) {
             console.error('Error changing status:', error);
@@ -819,9 +859,9 @@ export const MovieList: React.FC<MovieListProps> = ({ listId, onListsChanged }) 
                         <SlidersHorizontal className="w-4 h-4" />
                         Filters
                     </button>
-                    <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
+                    {/* <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
                         Add Movie
-                    </button>
+                    </button> */}
                 </div>
             </div>
 
@@ -954,8 +994,9 @@ export const MovieList: React.FC<MovieListProps> = ({ listId, onListsChanged }) 
                             onChangeStatus={handleChangeStatus}
                             onAddToCustomList={handleAddToCustomList}
                             onRemoveFromCustomList={handleRemoveFromCustomList}
-                            onUpdateEpisodeProgress={handleUpdateEpisodeProgress}
                             onUpdateFestivalData={handleUpdateFestivalData}
+                            onOpenEpisodeTracker={(itemId) => setEpisodeTrackerState({ isOpen: true, itemId })}
+                            onOpenDetailsModal={(item) => setDetailsModalState({ isOpen: true, item })}
                             availableLists={availableLists}
                             currentListId={listId}
                             isCustomList={!list.isSystem}
@@ -1010,6 +1051,27 @@ export const MovieList: React.FC<MovieListProps> = ({ listId, onListsChanged }) 
                         </button>
                     </div>
                 </div>
+            )}
+
+            {/* Episode Tracker Modal */}
+            {episodeTrackerState.isOpen && episodeTrackerState.itemId && (() => {
+                const currentItem = list?.items.find(item => item.id === episodeTrackerState.itemId);
+                return currentItem && currentItem.mediaType === 'tv' && (
+                    <EpisodeTracker
+                        item={currentItem}
+                        onUpdateProgress={handleUpdateEpisodeProgress}
+                        onChangeStatus={handleChangeStatus}
+                        onClose={() => setEpisodeTrackerState({ isOpen: false, itemId: null })}
+                    />
+                );
+            })()}
+
+            {/* Movie Details Modal */}
+            {detailsModalState.isOpen && detailsModalState.item && (
+                <MovieDetailsModal
+                    item={detailsModalState.item}
+                    onClose={() => setDetailsModalState({ isOpen: false, item: null })}
+                />
             )}
         </div>
     );

@@ -13,6 +13,11 @@ const omdbApi = axios.create({
     timeout: 10000,
 });
 
+const rapidApiImdbApi = axios.create({
+    baseURL: API_CONFIG.RAPIDAPI.IMDB.BASE_URL,
+    timeout: 15000,
+});
+
 // Add request interceptors to include API keys
 tmdbApi.interceptors.request.use((config) => {
     config.params = {
@@ -28,6 +33,12 @@ omdbApi.interceptors.request.use((config) => {
         ...config.params,
         apikey: API_CONFIG.OMDB.API_KEY,
     };
+    return config;
+});
+
+rapidApiImdbApi.interceptors.request.use((config) => {
+    config.headers['X-RapidAPI-Key'] = API_CONFIG.RAPIDAPI.KEY;
+    config.headers['X-RapidAPI-Host'] = API_CONFIG.RAPIDAPI.IMDB.HOST;
     return config;
 });
 
@@ -228,6 +239,57 @@ export const omdbService = {
                 type: type,
                 page: page,
             },
+        });
+        return response.data;
+    },
+};
+
+// RapidAPI IMDB Service
+export const imdbService = {
+    // Get title details by IMDB ID
+    getTitleDetails: async (imdbId: string): Promise<unknown> => {
+        const response = await rapidApiImdbApi.get(API_ENDPOINTS.RAPIDAPI_IMDB.TITLE_DETAILS, {
+            params: { tconst: imdbId },
+        });
+        return response.data;
+    },
+
+    // Get title ratings by IMDB ID
+    getTitleRatings: async (imdbId: string): Promise<unknown> => {
+        const response = await rapidApiImdbApi.get(API_ENDPOINTS.RAPIDAPI_IMDB.TITLE_RATINGS, {
+            params: { tconst: imdbId },
+        });
+        return response.data;
+    },
+
+    // Get title cast by IMDB ID
+    getTitleCast: async (imdbId: string): Promise<unknown> => {
+        const response = await rapidApiImdbApi.get(API_ENDPOINTS.RAPIDAPI_IMDB.TITLE_CAST, {
+            params: { tconst: imdbId },
+        });
+        return response.data;
+    },
+
+    // Get title overview by IMDB ID
+    getTitleOverview: async (imdbId: string): Promise<unknown> => {
+        const response = await rapidApiImdbApi.get(API_ENDPOINTS.RAPIDAPI_IMDB.TITLE_OVERVIEW, {
+            params: { tconst: imdbId },
+        });
+        return response.data;
+    },
+
+    // Get streaming services by IMDB ID
+    getStreamingServices: async (imdbId: string): Promise<unknown> => {
+        const response = await rapidApiImdbApi.get(API_ENDPOINTS.RAPIDAPI_IMDB.TITLE_WATCH_PROVIDERS, {
+            params: { tconst: imdbId },
+        });
+        return response.data;
+    },
+
+    // Search/autocomplete
+    autoComplete: async (query: string): Promise<unknown> => {
+        const response = await rapidApiImdbApi.get(API_ENDPOINTS.RAPIDAPI_IMDB.SEARCH, {
+            params: { q: query },
         });
         return response.data;
     },
