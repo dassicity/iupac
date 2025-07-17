@@ -2,11 +2,13 @@
   "name": "iupac",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "repair-users": "node scripts/repair-users-json.js"
   },
   "dependencies": {
     "@types/lodash.debounce": "^4.0.9",

@@ -16,19 +16,145 @@ async function ensureDataDir() {
     }
 }
 
+// Attempt to repair corrupted JSON
+async function repairJsonFile(filePath: string): Promise<boolean> {
+    console.log(`🔧 [signup] Attempting to repair corrupted JSON file: ${filePath}`);
+    try {
+        // Check if backup exists and is valid
+        const backupFile = `${filePath}.backup`;
+        try {
+            await fs.access(backupFile);
+            const backupData = await fs.readFile(backupFile, 'utf-8');
+            try {
+                JSON.parse(backupData); // Validate JSON
+                // If valid, restore from backup
+                await fs.copyFile(backupFile, filePath);
+                console.log(`✅ [signup] Successfully restored from backup file`);
+                return true;
+            } catch {
+                console.log(`⚠️ [signup] Backup file exists but contains invalid JSON`);
+            }
+        } catch {
+            console.log(`⚠️ [signup] No backup file found at ${backupFile}`);
+        }
+
+        // If no valid backup, try to fix the file manually
+        const data = await fs.readFile(filePath, 'utf-8');
+
+        // Look for the last valid array closing bracket
+        const lastValidIndex = data.lastIndexOf(']');
+        if (lastValidIndex > 0) {
+            // Extract what appears to be valid JSON
+            const potentiallyValidJson = data.substring(0, lastValidIndex + 1);
+            try {
+                const parsed = JSON.parse(potentiallyValidJson);
+                if (Array.isArray(parsed)) {
+                    // Write the repaired JSON back to the file
+                    await fs.writeFile(filePath, JSON.stringify(parsed, null, 2));
+                    console.log(`✅ [signup] Successfully repaired JSON file by truncating at valid array end`);
+                    return true;
+                }
+            } catch {
+                console.log(`❌ [signup] Could not repair JSON by truncating at array end`);
+            }
+        }
+
+        console.log(`❌ [signup] Could not repair corrupted JSON file`);
+        return false;
+    } catch (error) {
+        console.error(`❌ [signup] Error while attempting to repair JSON file:`, error);
+        return false;
+    }
+}
+
 // Get all users from file
 async function getAllUsers(): Promise<User[]> {
+    console.log('🔍 [signup] Attempting to read users from:', USERS_FILE);
     try {
+        await fs.access(USERS_FILE);
+        console.log('✅ [signup] Users file exists, reading content');
         const data = await fs.readFile(USERS_FILE, 'utf-8');
-        return JSON.parse(data);
+        console.log(`📄 [signup] Read ${data.length} bytes from users file`);
+
+        try {
+            const users = JSON.parse(data) || [];
+            console.log(`👥 [signup] Successfully parsed ${users.length} users from file`);
+            return users;
+        } catch (parseError) {
+            console.error('❌ [signup] Error parsing users.json:', parseError);
+
+            // Attempt to repair the file
+            const repaired = await repairJsonFile(USERS_FILE);
+            if (repaired) {
+                // Try reading again after repair
+                const repairedData = await fs.readFile(USERS_FILE, 'utf-8');
+                try {
+                    const users = JSON.parse(repairedData) || [];
+                    console.log(`🔄 [signup] Successfully parsed ${users.length} users after repair`);
+                    return users;
+                } catch {
+                    console.error('❌ [signup] Still cannot parse JSON after repair attempt');
+                }
+            }
+
+            return [];
+        }
     } catch {
+        console.log('📝 [signup] Users file does not exist yet, creating new array');
         return [];
     }
 }
 
 // Save users to file
 async function saveUsers(users: User[]): Promise<void> {
-    await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
+    console.log(`💾 [signup] Attempting to save ${users.length} users to file`);
+    try {
+        // Create a backup of the current file if it exists
+        try {
+            await fs.access(USERS_FILE);
+            const backupFile = `${USERS_FILE}.backup`;
+            await fs.copyFile(USERS_FILE, backupFile);
+            console.log(`📑 [signup] Created backup at ${backupFile}`);
+        } catch {
+            console.log('⚠️ [signup] No existing file to backup');
+        }
+
+        // Use atomic write pattern: write to temp file first, then rename
+        const tempFile = `${USERS_FILE}.temp`;
+        const jsonData = JSON.stringify(users, null, 2);
+
+        // Write to temporary file
+        await fs.writeFile(tempFile, jsonData);
+        console.log(`📝 [signup] Wrote data to temporary file: ${tempFile}`);
+
+        // Validate the JSON in the temp file
+        try {
+            const savedData = await fs.readFile(tempFile, 'utf-8');
+            const savedUsers = JSON.parse(savedData);
+            console.log(`✓ [signup] Validation: ${savedUsers.length} users in temp file`);
+
+            // If validation passes, atomically rename the temp file to the target file
+            await fs.rename(tempFile, USERS_FILE);
+            console.log(`✅ [signup] Successfully saved ${users.length} users to ${USERS_FILE}`);
+        } catch (error) {
+            console.error('❌ [signup] Validation failed: Could not parse temp file', error);
+
+            // If validation fails, attempt to restore from backup
+            try {
+                const backupFile = `${USERS_FILE}.backup`;
+                await fs.access(backupFile);
+                await fs.copyFile(backupFile, USERS_FILE);
+                console.log(`🔄 [signup] Restored from backup after validation failure`);
+            } catch (restoreError) {
+                console.error('❌ [signup] Could not restore from backup:', restoreError);
+            }
+
+            throw new Error('Failed to save users: JSON validation failed');
+        }
+    } catch (error) {
+        console.error('❌ [signup] Error saving users to file:', error);
+        throw error;
+    }
 }
 
 // Generate unique ID
@@ -120,12 +246,16 @@ async function initializeUserData(userId: string): Promise<void> {
 }
 
 export async function POST(request: NextRequest) {
+    console.log('🚀 [signup] Starting user registration process');
     try {
         await ensureDataDir();
+        console.log('📁 [signup] Ensured data directory exists');
 
         const { username, password, trackingData } = await request.json();
+        console.log(`👤 [signup] Received registration request for username: ${username}`);
 
         if (!username || !password) {
+            console.log('❌ [signup] Missing required fields');
             return NextResponse.json(
                 { error: 'Username and password are required' },
                 { status: 400 }
@@ -134,9 +264,12 @@ export async function POST(request: NextRequest) {
 
         // Check if user already exists
         const users = await getAllUsers();
+        console.log(`📊 [signup] Found ${users.length} existing users`);
+
         const existingUser = users.find(user => user.username === username);
 
         if (existingUser) {
+            console.log(`⚠️ [signup] User ${username} already exists`);
             return NextResponse.json(
                 { error: 'User already exists' },
                 { status: 409 }
@@ -145,10 +278,16 @@ export async function POST(request: NextRequest) {
 
         // Get client IP and location data
         const clientIP = getClientIP(request);
+        console.log(`🌐 [signup] Client IP: ${clientIP}`);
+
         const locationData = await getLocationData(clientIP);
+        console.log(`📍 [signup] Location data retrieved: ${locationData.country}, ${locationData.city}`);
+
         const sessionId = generateSessionId();
+        console.log(`🔑 [signup] Generated session ID: ${sessionId}`);
 
         // Create new user with tracking data
+        console.log('📝 [signup] Creating new user object');
         const newUser: User = {
             id: generateId(),
             username,
@@ -247,10 +386,12 @@ export async function POST(request: NextRequest) {
         };
 
         // Save user to users file
+        console.log(`➕ [signup] Adding new user ${username} to users array (now ${users.length + 1} users)`);
         users.push(newUser);
         await saveUsers(users);
 
         // Initialize user's data file
+        console.log(`📄 [signup] Initializing user data file for ${username}`);
         await initializeUserData(newUser.id);
 
         // Return user data (without password) and session info
@@ -260,6 +401,7 @@ export async function POST(request: NextRequest) {
             createdAt: newUser.createdAt,
             preferences: newUser.preferences,
         };
+        console.log(`✅ [signup] Registration successful for ${username}`);
         return NextResponse.json({
             user: userWithoutPassword,
             sessionId,
@@ -267,7 +409,7 @@ export async function POST(request: NextRequest) {
         }, { status: 201 });
 
     } catch (error) {
-        console.error('Signup error:', error);
+        console.error('❌ [signup] Registration error:', error);
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }
