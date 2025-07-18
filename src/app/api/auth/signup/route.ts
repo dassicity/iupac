@@ -1,171 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { User, LocationData } from '@/types';
+import { LocationData } from '@/types';
 import { APP_CONFIG } from '@/constants/app';
+import connectDB from '@/lib/mongodb';
+import { UserModel } from '@/models/User';
+import { UserDataModel } from '@/models/UserData';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
-
-// Ensure data directory exists
-async function ensureDataDir() {
-    try {
-        await fs.access(DATA_DIR);
-    } catch {
-        await fs.mkdir(DATA_DIR, { recursive: true });
-    }
-}
-
-// Attempt to repair corrupted JSON
-async function repairJsonFile(filePath: string): Promise<boolean> {
-    console.log(`🔧 [signup] Attempting to repair corrupted JSON file: ${filePath}`);
-    try {
-        // Check if backup exists and is valid
-        const backupFile = `${filePath}.backup`;
-        try {
-            await fs.access(backupFile);
-            const backupData = await fs.readFile(backupFile, 'utf-8');
-            try {
-                JSON.parse(backupData); // Validate JSON
-                // If valid, restore from backup
-                await fs.copyFile(backupFile, filePath);
-                console.log(`✅ [signup] Successfully restored from backup file`);
-                return true;
-            } catch {
-                console.log(`⚠️ [signup] Backup file exists but contains invalid JSON`);
-            }
-        } catch {
-            console.log(`⚠️ [signup] No backup file found at ${backupFile}`);
-        }
-
-        // If no valid backup, try to fix the file manually
-        const data = await fs.readFile(filePath, 'utf-8');
-
-        // Look for the last valid array closing bracket
-        const lastValidIndex = data.lastIndexOf(']');
-        if (lastValidIndex > 0) {
-            // Extract what appears to be valid JSON
-            const potentiallyValidJson = data.substring(0, lastValidIndex + 1);
-            try {
-                const parsed = JSON.parse(potentiallyValidJson);
-                if (Array.isArray(parsed)) {
-                    // Write the repaired JSON back to the file
-                    await fs.writeFile(filePath, JSON.stringify(parsed, null, 2));
-                    console.log(`✅ [signup] Successfully repaired JSON file by truncating at valid array end`);
-                    return true;
-                }
-            } catch {
-                console.log(`❌ [signup] Could not repair JSON by truncating at array end`);
-            }
-        }
-
-        console.log(`❌ [signup] Could not repair corrupted JSON file`);
-        return false;
-    } catch (error) {
-        console.error(`❌ [signup] Error while attempting to repair JSON file:`, error);
-        return false;
-    }
-}
-
-// Get all users from file
-async function getAllUsers(): Promise<User[]> {
-    console.log('🔍 [signup] Attempting to read users from:', USERS_FILE);
-    try {
-        await fs.access(USERS_FILE);
-        console.log('✅ [signup] Users file exists, reading content');
-        const data = await fs.readFile(USERS_FILE, 'utf-8');
-        console.log(`📄 [signup] Read ${data.length} bytes from users file`);
-
-        try {
-            const users = JSON.parse(data) || [];
-            console.log(`👥 [signup] Successfully parsed ${users.length} users from file`);
-            return users;
-        } catch (parseError) {
-            console.error('❌ [signup] Error parsing users.json:', parseError);
-
-            // Attempt to repair the file
-            const repaired = await repairJsonFile(USERS_FILE);
-            if (repaired) {
-                // Try reading again after repair
-                const repairedData = await fs.readFile(USERS_FILE, 'utf-8');
-                try {
-                    const users = JSON.parse(repairedData) || [];
-                    console.log(`🔄 [signup] Successfully parsed ${users.length} users after repair`);
-                    return users;
-                } catch {
-                    console.error('❌ [signup] Still cannot parse JSON after repair attempt');
-                }
-            }
-
-            return [];
-        }
-    } catch {
-        console.log('📝 [signup] Users file does not exist yet, creating new array');
-        return [];
-    }
-}
-
-// Save users to file
-async function saveUsers(users: User[]): Promise<void> {
-    console.log(`💾 [signup] Attempting to save ${users.length} users to file`);
-    try {
-        // Create a backup of the current file if it exists
-        try {
-            await fs.access(USERS_FILE);
-            const backupFile = `${USERS_FILE}.backup`;
-            await fs.copyFile(USERS_FILE, backupFile);
-            console.log(`📑 [signup] Created backup at ${backupFile}`);
-        } catch {
-            console.log('⚠️ [signup] No existing file to backup');
-        }
-
-        // Use atomic write pattern: write to temp file first, then rename
-        const tempFile = `${USERS_FILE}.temp`;
-        const jsonData = JSON.stringify(users, null, 2);
-
-        // Write to temporary file
-        await fs.writeFile(tempFile, jsonData);
-        console.log(`📝 [signup] Wrote data to temporary file: ${tempFile}`);
-
-        // Validate the JSON in the temp file
-        try {
-            const savedData = await fs.readFile(tempFile, 'utf-8');
-            const savedUsers = JSON.parse(savedData);
-            console.log(`✓ [signup] Validation: ${savedUsers.length} users in temp file`);
-
-            // If validation passes, atomically rename the temp file to the target file
-            await fs.rename(tempFile, USERS_FILE);
-            console.log(`✅ [signup] Successfully saved ${users.length} users to ${USERS_FILE}`);
-        } catch (error) {
-            console.error('❌ [signup] Validation failed: Could not parse temp file', error);
-
-            // If validation fails, attempt to restore from backup
-            try {
-                const backupFile = `${USERS_FILE}.backup`;
-                await fs.access(backupFile);
-                await fs.copyFile(backupFile, USERS_FILE);
-                console.log(`🔄 [signup] Restored from backup after validation failure`);
-            } catch (restoreError) {
-                console.error('❌ [signup] Could not restore from backup:', restoreError);
-            }
-
-            throw new Error('Failed to save users: JSON validation failed');
-        }
-    } catch (error) {
-        console.error('❌ [signup] Error saving users to file:', error);
-        throw error;
-    }
-}
-
-// Generate unique ID
-function generateId(): string {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
-
-// Get client IP address
+// Helper function to get client IP
 function getClientIP(request: NextRequest): string {
     const forwarded = request.headers.get('x-forwarded-for');
     const realIP = request.headers.get('x-real-ip');
+    const cfConnectingIP = request.headers.get('cf-connecting-ip');
 
     if (forwarded) {
         return forwarded.split(',')[0].trim();
@@ -175,16 +19,46 @@ function getClientIP(request: NextRequest): string {
         return realIP;
     }
 
-    return request.headers.get('x-forwarded-for') ||
-        request.headers.get('x-real-ip') ||
-        request.headers.get('remote-addr') ||
-        'unknown';
+    if (cfConnectingIP) {
+        return cfConnectingIP;
+    }
+
+    return '127.0.0.1';
 }
 
-// Get IP-based location data
+// Helper function to generate session ID
+function generateSessionId(): string {
+    return 'sess_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+}
+
+// Get location data from IP
 async function getLocationData(ipAddress: string): Promise<LocationData> {
     try {
-        const response = await fetch(`https://ipapi.co/${ipAddress}/json/`);
+        // Skip API call for localhost
+        if (ipAddress === '127.0.0.1' || ipAddress === '::1' || ipAddress.startsWith('192.168.') || ipAddress.startsWith('10.')) {
+            return {
+                country: 'Local',
+                countryCode: 'LC',
+                region: 'Local',
+                city: 'Local',
+                latitude: 0,
+                longitude: 0,
+                timezone: 'UTC',
+                isp: 'Local',
+                approximateLocation: true
+            };
+        }
+
+        const response = await fetch(`https://ipapi.co/${ipAddress}/json/`, {
+            headers: {
+                'User-Agent': 'IUPAC Movie Tracker/1.0'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
         const data = await response.json();
 
         return {
@@ -201,7 +75,7 @@ async function getLocationData(ipAddress: string): Promise<LocationData> {
             proxyDetected: data.threat?.is_proxy || false
         };
     } catch (error) {
-        console.error('Error getting location data:', error);
+        console.error('❌ [signup] Error getting location data:', error);
         return {
             country: 'Unknown',
             countryCode: 'Unknown',
@@ -216,40 +90,12 @@ async function getLocationData(ipAddress: string): Promise<LocationData> {
     }
 }
 
-// Generate session ID
-function generateSessionId(): string {
-    return Math.random().toString(36).substr(2, 9);
-}
-
-// Initialize user data file
-async function initializeUserData(userId: string): Promise<void> {
-    const userDataFile = path.join(DATA_DIR, `user_${userId}.json`);
-    const userData = {
-        lists: APP_CONFIG.DEFAULT_LISTS.map(list => ({
-            ...list,
-            items: [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-        })),
-        customLists: [],
-        journalEntries: [],
-        preferences: {
-            theme: 'dark',
-            language: 'en',
-            region: 'IN',
-            defaultView: 'grid',
-            itemsPerPage: 20,
-        },
-    };
-
-    await fs.writeFile(userDataFile, JSON.stringify(userData, null, 2));
-}
-
 export async function POST(request: NextRequest) {
     console.log('🚀 [signup] Starting user registration process');
     try {
-        await ensureDataDir();
-        console.log('📁 [signup] Ensured data directory exists');
+        // Connect to MongoDB
+        await connectDB();
+        console.log('🔌 [signup] Connected to MongoDB');
 
         const { username, password, trackingData } = await request.json();
         console.log(`👤 [signup] Received registration request for username: ${username}`);
@@ -263,10 +109,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Check if user already exists
-        const users = await getAllUsers();
-        console.log(`📊 [signup] Found ${users.length} existing users`);
-
-        const existingUser = users.find(user => user.username === username);
+        const existingUser = await UserModel.findOne({ username });
 
         if (existingUser) {
             console.log(`⚠️ [signup] User ${username} already exists`);
@@ -288,10 +131,9 @@ export async function POST(request: NextRequest) {
 
         // Create new user with tracking data
         console.log('📝 [signup] Creating new user object');
-        const newUser: User = {
-            id: generateId(),
+        const newUser = new UserModel({
             username,
-            password, // In production, hash this password
+            password, // Note: In production, you should hash this
             createdAt: new Date().toISOString(),
             preferences: {
                 theme: 'dark',
@@ -383,24 +225,46 @@ export async function POST(request: NextRequest) {
                     lastActivity: new Date().toISOString()
                 }
             }
-        };
+        });
 
-        // Save user to users file
-        console.log(`➕ [signup] Adding new user ${username} to users array (now ${users.length + 1} users)`);
-        users.push(newUser);
-        await saveUsers(users);
+        // Save user to MongoDB
+        const savedUser = await newUser.save();
+        console.log(`✅ [signup] User saved to MongoDB with ID: ${savedUser._id}`);
 
-        // Initialize user's data file
-        console.log(`📄 [signup] Initializing user data file for ${username}`);
-        await initializeUserData(newUser.id);
+        // Initialize user's data document
+        console.log(`📄 [signup] Initializing user data for ${username}`);
+        const userData = new UserDataModel({
+            userId: savedUser._id.toString(),
+            lists: APP_CONFIG.DEFAULT_LISTS.map(list => ({
+                ...list,
+                items: [],
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            })),
+            customLists: [],
+            journalEntries: [],
+            preferences: {
+                theme: 'dark',
+                language: 'en',
+                region: 'IN',
+                defaultView: 'grid',
+                itemsPerPage: 20,
+            },
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        });
+
+        await userData.save();
+        console.log(`✅ [signup] User data initialized for ${username}`);
 
         // Return user data (without password) and session info
         const userWithoutPassword = {
-            id: newUser.id,
-            username: newUser.username,
-            createdAt: newUser.createdAt,
-            preferences: newUser.preferences,
+            id: savedUser._id.toString(),
+            username: savedUser.username,
+            createdAt: savedUser.createdAt,
+            preferences: savedUser.preferences,
         };
+
         console.log(`✅ [signup] Registration successful for ${username}`);
         return NextResponse.json({
             user: userWithoutPassword,
