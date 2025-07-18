@@ -60,6 +60,32 @@ export const tmdbService = {
         return response.data;
     },
 
+    // Search people (actors, directors, etc.)
+    searchPeople: async (query: string, page: number = 1): Promise<TMDBResponse<Record<string, unknown>>> => {
+        const response = await tmdbApi.get('/search/person', {
+            params: { query, page },
+        });
+        return response.data;
+    },
+
+    // Get person details
+    getPersonDetails: async (personId: number): Promise<Record<string, unknown>> => {
+        const response = await tmdbApi.get(`/person/${personId}`);
+        return response.data;
+    },
+
+    // Get person movie credits
+    getPersonMovieCredits: async (personId: number): Promise<Record<string, unknown>> => {
+        const response = await tmdbApi.get(`/person/${personId}/movie_credits`);
+        return response.data;
+    },
+
+    // Get person TV credits
+    getPersonTVCredits: async (personId: number): Promise<Record<string, unknown>> => {
+        const response = await tmdbApi.get(`/person/${personId}/tv_credits`);
+        return response.data;
+    },
+
     // Get movie details
     getMovieDetails: async (movieId: number): Promise<Movie> => {
         const response = await tmdbApi.get(`${API_ENDPOINTS.TMDB.MOVIE_DETAILS}/${movieId}`, {

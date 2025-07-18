@@ -124,34 +124,41 @@ export async function POST(request: NextRequest) {
             sessionIndex = user.trackingData.sessions.length - 1;
         }
 
-        // Update tracking data based on type
+        // Use atomic updates to prevent version conflicts
+        const updateQuery: Record<string, unknown> = {
+            'trackingData.lastUpdated': new Date().toISOString(),
+            'trackingData.behaviorData.lastActivity': new Date().toISOString()
+        };
+
+        // Update tracking data based on type using atomic operations
         switch (type) {
             case 'pageview':
                 const pageViewData = data as PageViewData;
                 console.log(`📄 [tracking] Adding page view: ${pageViewData.url}`);
-                user.trackingData.sessions[sessionIndex].pageViews.push(pageViewData);
-                user.trackingData.behaviorData.totalPageViews++;
 
-                // Update most visited pages
-                const existingPageIndex = user.trackingData.behaviorData.mostVisitedPages.findIndex((p: string) => p === pageViewData.url);
-                if (existingPageIndex === -1) {
-                    user.trackingData.behaviorData.mostVisitedPages.push(pageViewData.url);
+                updateQuery[`trackingData.sessions.${sessionIndex}.pageViews`] = pageViewData;
+                updateQuery['trackingData.behaviorData.totalPageViews'] = 1;
+
+                // Check if page already exists in mostVisited
+                if (!user.trackingData.behaviorData.mostVisitedPages.includes(pageViewData.url)) {
+                    updateQuery['trackingData.behaviorData.mostVisitedPages'] = pageViewData.url;
                 }
                 break;
 
             case 'interaction':
                 const interactionData = data as InteractionData;
                 console.log(`🖱️ [tracking] Adding interaction: ${interactionData.type} on ${interactionData.element}`);
-                user.trackingData.sessions[sessionIndex].interactions.push(interactionData);
-                user.trackingData.behaviorData.totalInteractions++;
+
+                updateQuery[`trackingData.sessions.${sessionIndex}.interactions`] = interactionData;
+                updateQuery['trackingData.behaviorData.totalInteractions'] = 1;
 
                 // Handle specific interaction types
                 if (interactionData.type === 'search' && interactionData.data?.query) {
-                    user.trackingData.behaviorData.searchQueries.push(String(interactionData.data.query));
+                    updateQuery['trackingData.behaviorData.searchQueries'] = String(interactionData.data.query);
                 } else if (interactionData.type === 'movie_add') {
-                    user.trackingData.behaviorData.moviesAdded++;
+                    updateQuery['trackingData.behaviorData.moviesAdded'] = 1;
                 } else if (interactionData.type === 'rating') {
-                    user.trackingData.behaviorData.moviesRated++;
+                    updateQuery['trackingData.behaviorData.moviesRated'] = 1;
                 }
                 break;
 
@@ -164,12 +171,20 @@ export async function POST(request: NextRequest) {
                 console.log(`⚠️ [tracking] Unknown tracking type: ${type}`);
         }
 
-        // Update last activity and tracking timestamp
-        user.trackingData.lastUpdated = new Date().toISOString();
-        user.trackingData.behaviorData.lastActivity = new Date().toISOString();
-
-        // Save to MongoDB
-        await user.save();
+        // Perform atomic update to prevent version conflicts
+        await UserModel.findByIdAndUpdate(userId, {
+            $push: updateQuery,
+            $inc: {
+                'trackingData.behaviorData.totalPageViews': type === 'pageview' ? 1 : 0,
+                'trackingData.behaviorData.totalInteractions': type === 'interaction' ? 1 : 0,
+                'trackingData.behaviorData.moviesAdded': (type === 'interaction' && (data as InteractionData).type === 'movie_add') ? 1 : 0,
+                'trackingData.behaviorData.moviesRated': (type === 'interaction' && (data as InteractionData).type === 'rating') ? 1 : 0,
+            },
+            $set: {
+                'trackingData.lastUpdated': new Date().toISOString(),
+                'trackingData.behaviorData.lastActivity': new Date().toISOString()
+            }
+        });
         console.log(`✅ [tracking] Successfully saved tracking data for user ${userId}`);
 
         return NextResponse.json({ success: true }, { status: 200 });
