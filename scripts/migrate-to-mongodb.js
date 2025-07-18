@@ -23,8 +23,16 @@ import fs from 'fs';
 import path from 'path';
 import mongoose from 'mongoose';
 
-// MongoDB connection
-const MONGODB_URI = 'mongodb+srv://dassic:Dassic007@cluster0.ad9yl.mongodb.net/iupac?retryWrites=true&w=majority&appName=Cluster0';
+// MongoDB connection - load from environment
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+    console.error('❌ MONGODB_URI environment variable is not defined in .env.local');
+    process.exit(1);
+}
 
 // Define Mongoose schemas directly in the migration script
 const UserSchema = new mongoose.Schema({
